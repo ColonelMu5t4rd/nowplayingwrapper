@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Now Playing</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --text: #f0f0f0;
+    --subtext: #888;
+    --accent: #1db954;
+    --btn-bg: rgba(255,255,255,0.08);
+    --btn-hover: rgba(255,255,255,0.14);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    overflow: hidden;
+  }
+
+  /* Blurred album art background */
+  #bg-art {
+    position: fixed;
+    inset: -40px;
+    background-size: cover;
+    background-position: center;
+    filter: blur(60px) brightness(0.18) saturate(1.4);
+    transition: background-image 1s ease;
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+
+  /* Album art */
+  #art-wrap {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  #art {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.4s ease;
+  }
+
+  #art.loading { opacity: 0; }
+
+  /* Track info */
+  #info {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #track-name {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #artist-name {
+    font-size: 15px;
+    color: var(--subtext);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #album-line {
+    font-size: 13px;
+    color: var(--subtext);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  #album-line span.year {
+    color: #666;
+  }
+
+  /* Progress bar */
+  #progress-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  #progress-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  #progress-fill {
+    height: 100%;
+    background: var(--text);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 1s linear;
+    pointer-events: none;
+  }
+
+  #progress-bar:hover #progress-fill {
+    background: var(--accent);
+  }
+
+  #time-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #555;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Controls */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .ctrl-btn {
+    background: none;
+    border: none;
+    color: var(--subtext);
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ctrl-btn:hover, .ctrl-btn:active {
+    color: var(--text);
+    background: var(--btn-hover);
+  }
+
+  .ctrl-btn svg { display: block; }
+
+  #btn-play-pause {
+    color: var(--text);
+    background: var(--btn-bg);
+    width: 56px;
+    height: 56px;
+  }
+
+  #btn-play-pause:hover {
+    background: var(--btn-hover);
+  }
+
+  /* Nothing playing state */
+  #idle {
+    text-align: center;
+    color: var(--subtext);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  #idle strong {
+    display: block;
+    color: var(--text);
+    font-size: 17px;
+    margin-bottom: 8px;
+  }
+
+  /* Auth screen */
+  #auth-screen {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  #auth-screen h1 {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.4px;
+  }
+
+  #auth-screen p {
+    color: var(--subtext);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 280px;
+  }
+
+  #btn-auth {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 100px;
+    padding: 14px 36px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.2px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #btn-auth:active { opacity: 0.85; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="bg-art"></div>
+
+<!-- Auth screen -->
+<div id="auth-screen">
+  <h1>Now Playing</h1>
+  <p>Connect your Spotify account to see what's playing.</p>
+  <button id="btn-auth">Connect Spotify</button>
+</div>
+
+<!-- Player -->
+<div id="app" class="hidden">
+  <div id="art-wrap">
+    <img id="art" src="" alt="Album art">
+  </div>
+
+  <div id="info">
+    <div id="track-name">—</div>
+    <div id="artist-name">—</div>
+    <div id="album-line"></div>
+  </div>
+
+  <div id="progress-wrap">
+    <div id="progress-bar">
+      <div id="progress-fill"></div>
+    </div>
+    <div id="time-labels">
+      <span id="time-current">0:00</span>
+      <span id="time-total">0:00</span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="ctrl-btn" id="btn-prev" title="Previous">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+      </svg>
+    </button>
+
+    <button class="ctrl-btn" id="btn-play-pause" title="Play / Pause">
+      <!-- filled by JS -->
+    </button>
+
+    <button class="ctrl-btn" id="btn-next" title="Next">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- shown when nothing is playing -->
+  <div id="idle" class="hidden">
+    <strong>Nothing playing</strong>
+    Open Spotify on any device to start something.
+  </div>
+</div>
+
+<script>
+// ─── Config — fill these in ───────────────────────────────────────────────────
+const CLIENT_ID     = '1462278c25c24472ac91452e20262d5f';
+const REDIRECT_URI  = 'https://colonelmu5t4rd.github.io/nowplayingwrapper/';
+const SCOPES        = [
+  'user-read-playback-state',
+  'user-modify-playback-state',
+  'user-read-currently-playing',
+].join(' ');
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── PKCE helpers ──────────────────────────────────────────────────────────────
+function randomBytes(n) {
+  return crypto.getRandomValues(new Uint8Array(n));
+}
+
+function base64url(buf) {
+  return btoa(String.fromCharCode(...buf))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function sha256(plain) {
+  const enc = new TextEncoder().encode(plain);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return new Uint8Array(hash);
+}
+
+async function pkceChallenge() {
+  const verifier = base64url(randomBytes(32));
+  const challenge = base64url(await sha256(verifier));
+  return { verifier, challenge };
+}
+
+// ── Token storage ──────────────────────────────────────────────────────────────
+function saveTokens(data) {
+  localStorage.setItem('sp_access_token',  data.access_token);
+  localStorage.setItem('sp_refresh_token', data.refresh_token);
+  localStorage.setItem('sp_expires_at',    Date.now() + data.expires_in * 1000);
+}
+
+function getAccessToken()  { return localStorage.getItem('sp_access_token'); }
+function getRefreshToken() { return localStorage.getItem('sp_refresh_token'); }
+function tokenExpired()    { return Date.now() > +localStorage.getItem('sp_expires_at') - 60_000; }
+
+async function refreshAccessToken() {
+  const rt = getRefreshToken();
+  if (!rt) { logout(); return; }
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type:    'refresh_token',
+      refresh_token: rt,
+      client_id:     CLIENT_ID,
+    }),
+  });
+  if (!res.ok) { logout(); return; }
+  const data = await res.json();
+  saveTokens({ ...data, refresh_token: data.refresh_token || rt });
+}
+
+async function ensureToken() {
+  if (tokenExpired()) await refreshAccessToken();
+}
+
+function logout() {
+  ['sp_access_token','sp_refresh_token','sp_expires_at','sp_verifier']
+    .forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+// ── Auth flow ─────────────────────────────────────────────────────────────────
+document.getElementById('btn-auth').addEventListener('click', async () => {
+  const { verifier, challenge } = await pkceChallenge();
+  localStorage.setItem('sp_verifier', verifier);
+
+  const params = new URLSearchParams({
+    client_id:             CLIENT_ID,
+    response_type:         'code',
+    redirect_uri:          REDIRECT_URI,
+    scope:                 SCOPES,
+    code_challenge_method: 'S256',
+    code_challenge:        challenge,
+  });
+
+  location.href = `https://accounts.spotify.com/authorize?${params}`;
+});
+
+async function handleCallback(code) {
+  const verifier = localStorage.getItem('sp_verifier');
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type:    'authorization_code',
+      code,
+      redirect_uri:  REDIRECT_URI,
+      client_id:     CLIENT_ID,
+      code_verifier: verifier,
+    }),
+  });
+  if (!res.ok) { alert('Auth failed. Try again.'); return; }
+  const data = await res.json();
+  saveTokens(data);
+  localStorage.removeItem('sp_verifier');
+  // Clean URL
+  history.replaceState({}, '', location.pathname);
+  startPlayer();
+}
+
+// ── Spotify API ───────────────────────────────────────────────────────────────
+async function apiGet(path) {
+  await ensureToken();
+  const res = await fetch(`https://api.spotify.com/v1${path}`, {
+    headers: { Authorization: `Bearer ${getAccessToken()}` },
+  });
+  if (res.status === 401) { logout(); return null; }
+  if (res.status === 204 || res.status === 202) return null;
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function apiPut(path, body) {
+  await ensureToken();
+  await fetch(`https://api.spotify.com/v1${path}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+async function apiPost(path) {
+  await ensureToken();
+  await fetch(`https://api.spotify.com/v1${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getAccessToken()}` },
+  });
+}
+
+// ── Player UI ─────────────────────────────────────────────────────────────────
+const PLAY_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+const PAUSE_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+
+let currentTrackId = null;
+let isPlaying = false;
+let durationMs = 0;
+let progressMs = 0;
+let lastPollAt = 0;
+let rafId = null;
+
+function formatMs(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function setArt(url) {
+  const img = document.getElementById('art');
+  img.classList.add('loading');
+  img.onload = () => img.classList.remove('loading');
+  img.src = url;
+  document.getElementById('bg-art').style.backgroundImage = `url('${url}')`;
+}
+
+function renderIdle() {
+  document.getElementById('idle').classList.remove('hidden');
+  document.getElementById('info').style.opacity = '0.3';
+  document.getElementById('progress-wrap').style.opacity = '0.3';
+  document.getElementById('controls').style.opacity = '0.3';
+  document.getElementById('art-wrap').style.opacity = '0.4';
+}
+
+function renderActive() {
+  document.getElementById('idle').classList.add('hidden');
+  document.getElementById('info').style.opacity = '';
+  document.getElementById('progress-wrap').style.opacity = '';
+  document.getElementById('controls').style.opacity = '';
+  document.getElementById('art-wrap').style.opacity = '';
+}
+
+function updateProgress(elapsed) {
+  const pos = Math.min(progressMs + elapsed, durationMs);
+  const pct = durationMs > 0 ? (pos / durationMs) * 100 : 0;
+  document.getElementById('progress-fill').style.transition = elapsed > 0 ? 'none' : '';
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('time-current').textContent = formatMs(pos);
+  document.getElementById('time-total').textContent   = formatMs(durationMs);
+}
+
+function tickProgress() {
+  if (isPlaying) {
+    const elapsed = Date.now() - lastPollAt;
+    updateProgress(elapsed);
+  }
+  rafId = requestAnimationFrame(tickProgress);
+}
+
+function applyState(state) {
+  if (!state || !state.item) {
+    renderIdle();
+    return;
+  }
+
+  renderActive();
+
+  const track = state.item;
+  isPlaying  = state.is_playing;
+  durationMs = track.duration_ms;
+  progressMs = state.progress_ms;
+  lastPollAt = Date.now();
+
+  // Art
+  const artUrl = track.album?.images?.[0]?.url;
+  if (artUrl) setArt(artUrl);
+
+  // Info
+  document.getElementById('track-name').textContent  = track.name;
+  document.getElementById('artist-name').textContent = track.artists?.map(a => a.name).join(', ') ?? '—';
+
+  const year = track.album?.release_date?.slice(0, 4) ?? '';
+  const albumName = track.album?.name ?? '';
+  const albumEl = document.getElementById('album-line');
+  albumEl.textContent = '';
+  if (albumName) {
+    albumEl.appendChild(document.createTextNode(albumName));
+    if (year) {
+      const yearSpan = document.createElement('span');
+      yearSpan.className = 'year';
+      yearSpan.textContent = ` · ${year}`;
+      albumEl.appendChild(yearSpan);
+    }
+  }
+
+  // Play/pause button
+  document.getElementById('btn-play-pause').innerHTML = isPlaying ? PAUSE_ICON : PLAY_ICON;
+
+  // Track changed?
+  currentTrackId = track.id;
+
+  updateProgress(0);
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-play-pause').addEventListener('click', async () => {
+  if (isPlaying) {
+    await apiPut('/me/player/pause');
+    isPlaying = false;
+  } else {
+    await apiPut('/me/player/play');
+    isPlaying = true;
+  }
+  document.getElementById('btn-play-pause').innerHTML = isPlaying ? PAUSE_ICON : PLAY_ICON;
+});
+
+document.getElementById('btn-next').addEventListener('click', async () => {
+  await apiPost('/me/player/next');
+  setTimeout(poll, 500);
+});
+
+document.getElementById('btn-prev').addEventListener('click', async () => {
+  // If more than 3s in, restart track; otherwise go to previous
+  const elapsed = Date.now() - lastPollAt;
+  const pos = progressMs + elapsed;
+  if (pos > 3000) {
+    await apiPut('/me/player/seek?position_ms=0');
+    progressMs = 0;
+    lastPollAt = Date.now();
+  } else {
+    await apiPost('/me/player/previous');
+    setTimeout(poll, 500);
+  }
+});
+
+// Seek on progress bar tap
+document.getElementById('progress-bar').addEventListener('click', async (e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct  = (e.clientX - rect.left) / rect.width;
+  const pos  = Math.floor(pct * durationMs);
+  await apiPut(`/me/player/seek?position_ms=${pos}`);
+  progressMs = pos;
+  lastPollAt = Date.now();
+});
+
+// ── Polling ───────────────────────────────────────────────────────────────────
+async function poll() {
+  const state = await apiGet('/me/player');
+  applyState(state);
+}
+
+function startPlayer() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  poll();
+  setInterval(poll, 3000);
+  rafId = requestAnimationFrame(tickProgress);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const code   = params.get('code');
+
+  if (code) {
+    // Coming back from Spotify auth
+    await handleCallback(code);
+    return;
+  }
+
+  if (getAccessToken()) {
+    startPlayer();
+  }
+  // else: auth screen is already visible
+})();
+</script>
+</body>
+</html>
