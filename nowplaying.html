@@ -210,6 +210,8 @@
     flex-direction: column;
     align-items: center;
     gap: 20px;
+    position: relative;
+    z-index: 1;
   }
 
   #auth-screen h1 {
@@ -525,9 +527,16 @@ function applyState(state) {
   const year = track.album?.release_date?.slice(0, 4) ?? '';
   const albumName = track.album?.name ?? '';
   const albumEl = document.getElementById('album-line');
-  albumEl.innerHTML = albumName
-    ? `${albumName}${year ? ` <span class="year">· ${year}</span>` : ''}`
-    : '';
+  albumEl.textContent = '';
+  if (albumName) {
+    albumEl.appendChild(document.createTextNode(albumName));
+    if (year) {
+      const yearSpan = document.createElement('span');
+      yearSpan.className = 'year';
+      yearSpan.textContent = ` · ${year}`;
+      albumEl.appendChild(yearSpan);
+    }
+  }
 
   // Play/pause button
   document.getElementById('btn-play-pause').innerHTML = isPlaying ? PAUSE_ICON : PLAY_ICON;
