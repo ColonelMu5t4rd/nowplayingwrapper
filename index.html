@@ -15,6 +15,7 @@
     --accent: #6b6b3a;
     --btn-bg: rgba(0,0,0,0.07);
     --btn-hover: rgba(0,0,0,0.13);
+    --card-bg: rgba(245,240,232,0.82);
   }
 
   body {
@@ -23,36 +24,50 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     min-height: 100dvh;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 32px 24px;
+    padding: 24px;
     overflow: hidden;
   }
 
-  /* Blurred album art background */
   #bg-art {
     position: fixed;
     inset: -40px;
     background-size: cover;
     background-position: center;
-    filter: blur(60px) brightness(0.18) saturate(1.4);
+    filter: blur(60px) brightness(0.55) saturate(1.4);
     transition: background-image 1s ease;
     z-index: 0;
   }
 
-  #app {
+  /* ── Layout ── */
+  #layout {
     position: relative;
     z-index: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 16px;
     width: 100%;
     max-width: 380px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 28px;
   }
 
-  /* Album art */
+  /* ── Player card ── */
+  #app {
+    width: 100%;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 20px;
+    padding: 20px;
+    border: 0.5px solid rgba(255,255,255,0.5);
+    align-items: center;
+    gap: 24px;
+  }
+
   #art-wrap {
     width: 100%;
     aspect-ratio: 1;
@@ -73,7 +88,6 @@
 
   #art.loading { opacity: 0; }
 
-  /* Track info */
   #info {
     width: 100%;
     display: flex;
@@ -91,7 +105,7 @@
   }
 
   #track-name {
-    font-size: 22px;
+    font-size: 28px;
     font-weight: 600;
     letter-spacing: -0.3px;
     white-space: nowrap;
@@ -100,7 +114,7 @@
   }
 
   #artist-name {
-    font-size: 15px;
+    font-size: 18px;
     color: var(--subtext);
     white-space: nowrap;
     overflow: hidden;
@@ -108,7 +122,7 @@
   }
 
   #album-line {
-    font-size: 13px;
+    font-size: 15px;
     color: var(--subtext);
     white-space: nowrap;
     overflow: hidden;
@@ -126,10 +140,9 @@
     color: #f5f0e8;
     padding: 4px 10px;
     border-radius: 6px;
-    transition: background 0.6s ease, color 0.6s ease;
+    transition: background 0.6s ease;
   }
 
-  /* Progress bar */
   #progress-wrap {
     width: 100%;
     display: flex;
@@ -155,9 +168,7 @@
     pointer-events: none;
   }
 
-  #progress-bar:hover #progress-fill {
-    background: var(--accent);
-  }
+  #progress-bar:hover #progress-fill { background: var(--accent); }
 
   #time-labels {
     display: flex;
@@ -167,7 +178,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Controls */
   #controls {
     display: flex;
     align-items: center;
@@ -186,11 +196,18 @@
     justify-content: center;
     transition: color 0.15s, background 0.15s;
     -webkit-tap-highlight-color: transparent;
+    outline: none;
   }
 
   .ctrl-btn:hover, .ctrl-btn:active {
     color: var(--text);
     background: var(--btn-hover);
+  }
+
+  .ctrl-btn:focus-visible {
+    color: var(--text);
+    background: var(--btn-hover);
+    box-shadow: 0 0 0 3px var(--accent);
   }
 
   .ctrl-btn svg { display: block; }
@@ -202,11 +219,8 @@
     height: 56px;
   }
 
-  #btn-play-pause:hover {
-    background: var(--btn-hover);
-  }
+  #btn-play-pause:hover { background: var(--btn-hover); }
 
-  /* Nothing playing state */
   #idle {
     text-align: center;
     color: var(--subtext);
@@ -221,15 +235,73 @@
     margin-bottom: 8px;
   }
 
-  /* Auth screen */
+  /* ── Lyrics card ── */
+  #lyrics-card {
+    display: none;
+    flex: 1;
+    min-width: 0;
+    background: var(--card-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 20px;
+    border: 0.5px solid rgba(255,255,255,0.5);
+    overflow: hidden;
+    position: relative;
+  }
+
+  #lyrics-scroll {
+    height: 100%;
+    overflow-y: auto;
+    padding: 48px 32px;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+
+  #lyrics-scroll::-webkit-scrollbar { display: none; }
+
+  #lyrics-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .lyric-line {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: rgba(44,42,36,0.25);
+    transition: color 0.3s ease, font-size 0.2s ease;
+    cursor: default;
+  }
+
+  .lyric-line.active {
+    color: var(--text);
+    font-size: 30px;
+  }
+
+  .lyric-line.past {
+    color: rgba(44,42,36,0.45);
+  }
+
+  #lyrics-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--subtext);
+    font-size: 15px;
+  }
+
+  /* ── Auth screen ── */
   #auth-screen {
+    position: relative;
+    z-index: 1;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 20px;
-    position: relative;
-    z-index: 1;
   }
 
   #auth-screen h1 {
@@ -247,7 +319,7 @@
 
   #btn-auth {
     background: var(--accent);
-    color: #000;
+    color: #f5f0e8;
     border: none;
     border-radius: 100px;
     padding: 14px 36px;
@@ -258,112 +330,132 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  #btn-auth:focus-visible { box-shadow: 0 0 0 3px var(--accent); outline: none; }
   #btn-auth:active { opacity: 0.85; }
 
   .hidden { display: none !important; }
+
+  /* ── Landscape / TV layout ── */
+  @media (orientation: landscape) and (min-width: 768px) {
+    body { padding: 24px 32px; }
+
+    #layout {
+      max-width: 1100px;
+      height: calc(100dvh - 48px);
+      align-items: stretch;
+    }
+
+    #app {
+      width: 320px;
+      flex-shrink: 0;
+    }
+
+    #art-wrap { aspect-ratio: 1; }
+
+    #track-name { font-size: 22px; }
+    #artist-name { font-size: 15px; }
+    #album-line { font-size: 13px; }
+
+    #lyrics-card { display: block; }
+  }
 </style>
 </head>
 <body>
 
 <div id="bg-art"></div>
 
-<!-- Auth screen -->
 <div id="auth-screen">
   <h1>Now Playing</h1>
   <p>Connect your Spotify account to see what's playing.</p>
   <button id="btn-auth">Connect Spotify</button>
 </div>
 
-<!-- Player -->
-<div id="app" class="hidden">
-  <div id="art-wrap">
-    <img id="art" src="" alt="Album art">
-  </div>
-
-  <div id="info">
-    <div id="info-text">
-      <div id="track-name">—</div>
-      <div id="artist-name">—</div>
-      <div id="album-line"></div>
+<div id="layout" class="hidden">
+  <!-- Player card -->
+  <div id="app">
+    <div id="art-wrap">
+      <img id="art" src="" alt="Album art">
     </div>
-    <div id="year"></div>
-  </div>
 
-  <div id="progress-wrap">
-    <div id="progress-bar">
-      <div id="progress-fill"></div>
+    <div id="info">
+      <div id="info-text">
+        <div id="track-name">—</div>
+        <div id="artist-name">—</div>
+        <div id="album-line"></div>
+      </div>
+      <div id="year"></div>
     </div>
-    <div id="time-labels">
-      <span id="time-current">0:00</span>
-      <span id="time-total">0:00</span>
+
+    <div id="progress-wrap">
+      <div id="progress-bar">
+        <div id="progress-fill"></div>
+      </div>
+      <div id="time-labels">
+        <span id="time-current">0:00</span>
+        <span id="time-total">0:00</span>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" id="btn-prev" title="Previous">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+        </svg>
+      </button>
+      <button class="ctrl-btn" id="btn-play-pause" title="Play / Pause"></button>
+      <button class="ctrl-btn" id="btn-next" title="Next">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="idle" class="hidden">
+      <strong>Nothing playing</strong>
+      Open Spotify on any device to start something.
     </div>
   </div>
 
-  <div id="controls">
-    <button class="ctrl-btn" id="btn-prev" title="Previous">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
-      </svg>
-    </button>
-
-    <button class="ctrl-btn" id="btn-play-pause" title="Play / Pause">
-      <!-- filled by JS -->
-    </button>
-
-    <button class="ctrl-btn" id="btn-next" title="Next">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- shown when nothing is playing -->
-  <div id="idle" class="hidden">
-    <strong>Nothing playing</strong>
-    Open Spotify on any device to start something.
+  <!-- Lyrics card -->
+  <div id="lyrics-card">
+    <div id="lyrics-scroll">
+      <div id="lyrics-lines"></div>
+    </div>
+    <div id="lyrics-empty">No lyrics available</div>
   </div>
 </div>
 
 <script>
-// ─── Config — fill these in ───────────────────────────────────────────────────
-const CLIENT_ID     = '1462278c25c24472ac91452e20262d5f';
-const REDIRECT_URI  = 'https://colonelmu5t4rd.github.io/nowplayingwrapper/';
-const SCOPES        = [
+const CLIENT_ID    = '1462278c25c24472ac91452e20262d5f';
+const REDIRECT_URI = 'https://colonelmu5t4rd.github.io/nowplayingwrapper/';
+const SCOPES       = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'user-read-currently-playing',
 ].join(' ');
-// ─────────────────────────────────────────────────────────────────────────────
 
-// ── PKCE helpers ──────────────────────────────────────────────────────────────
-function randomBytes(n) {
-  return crypto.getRandomValues(new Uint8Array(n));
-}
-
+// ── PKCE ─────────────────────────────────────────────────────────────────────
+function randomBytes(n) { return crypto.getRandomValues(new Uint8Array(n)); }
 function base64url(buf) {
   return btoa(String.fromCharCode(...buf))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 }
-
 async function sha256(plain) {
   const enc = new TextEncoder().encode(plain);
-  const hash = await crypto.subtle.digest('SHA-256', enc);
-  return new Uint8Array(hash);
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', enc));
 }
-
 async function pkceChallenge() {
-  const verifier = base64url(randomBytes(32));
+  const verifier  = base64url(randomBytes(32));
   const challenge = base64url(await sha256(verifier));
   return { verifier, challenge };
 }
 
-// ── Token storage ──────────────────────────────────────────────────────────────
+// ── Token storage ─────────────────────────────────────────────────────────────
 function saveTokens(data) {
   localStorage.setItem('sp_access_token',  data.access_token);
   localStorage.setItem('sp_refresh_token', data.refresh_token);
   localStorage.setItem('sp_expires_at',    Date.now() + data.expires_in * 1000);
 }
-
 function getAccessToken()  { return localStorage.getItem('sp_access_token'); }
 function getRefreshToken() { return localStorage.getItem('sp_refresh_token'); }
 function tokenExpired()    { return Date.now() > +localStorage.getItem('sp_expires_at') - 60_000; }
@@ -375,9 +467,7 @@ async function refreshAccessToken() {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type:    'refresh_token',
-      refresh_token: rt,
-      client_id:     CLIENT_ID,
+      grant_type: 'refresh_token', refresh_token: rt, client_id: CLIENT_ID,
     }),
   });
   if (!res.ok) { logout(); return; }
@@ -385,9 +475,7 @@ async function refreshAccessToken() {
   saveTokens({ ...data, refresh_token: data.refresh_token || rt });
 }
 
-async function ensureToken() {
-  if (tokenExpired()) await refreshAccessToken();
-}
+async function ensureToken() { if (tokenExpired()) await refreshAccessToken(); }
 
 function logout() {
   ['sp_access_token','sp_refresh_token','sp_expires_at','sp_verifier']
@@ -395,20 +483,14 @@ function logout() {
   location.reload();
 }
 
-// ── Auth flow ─────────────────────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────────────
 document.getElementById('btn-auth').addEventListener('click', async () => {
   const { verifier, challenge } = await pkceChallenge();
   localStorage.setItem('sp_verifier', verifier);
-
   const params = new URLSearchParams({
-    client_id:             CLIENT_ID,
-    response_type:         'code',
-    redirect_uri:          REDIRECT_URI,
-    scope:                 SCOPES,
-    code_challenge_method: 'S256',
-    code_challenge:        challenge,
+    client_id: CLIENT_ID, response_type: 'code', redirect_uri: REDIRECT_URI,
+    scope: SCOPES, code_challenge_method: 'S256', code_challenge: challenge,
   });
-
   location.href = `https://accounts.spotify.com/authorize?${params}`;
 });
 
@@ -418,18 +500,14 @@ async function handleCallback(code) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type:    'authorization_code',
-      code,
-      redirect_uri:  REDIRECT_URI,
-      client_id:     CLIENT_ID,
-      code_verifier: verifier,
+      grant_type: 'authorization_code', code,
+      redirect_uri: REDIRECT_URI, client_id: CLIENT_ID, code_verifier: verifier,
     }),
   });
   if (!res.ok) { alert('Auth failed. Try again.'); return; }
-  const data = await res.json();
-  saveTokens(data);
+  const tokenData = await res.json();
+  saveTokens(tokenData);
   localStorage.removeItem('sp_verifier');
-  // Clean URL
   history.replaceState({}, '', location.pathname);
   startPlayer();
 }
@@ -450,10 +528,7 @@ async function apiPut(path, body) {
   await ensureToken();
   await fetch(`https://api.spotify.com/v1${path}`, {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${getAccessToken()}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: `Bearer ${getAccessToken()}`, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
 }
@@ -466,16 +541,128 @@ async function apiPost(path) {
   });
 }
 
+// ── Lyrics ────────────────────────────────────────────────────────────────────
+let lyricsLines = []; // [{timeMs, text}]
+let lastLyricsTrackId = null;
+let activeLineIndex = -1;
+
+async function fetchLyricsSpotify(trackId) {
+  await ensureToken();
+  const res = await fetch(
+    `https://spclient.wg.spotify.com/color-lyrics/v2/track/${trackId}?format=json&vocalRemoval=false&market=from_token`,
+    { headers: { Authorization: `Bearer ${getAccessToken()}`, 'App-platform': 'WebPlayer' } }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  const lines = data?.lyrics?.lines;
+  if (!lines?.length) return null;
+  return lines
+    .map(l => ({ timeMs: +l.startTimeMs, text: l.words }))
+    .filter(l => l.text && l.text !== '♪');
+}
+
+async function fetchLyricsLrclib(artist, title, album, durationSecs) {
+  const params = new URLSearchParams({
+    artist_name: artist, track_name: title,
+    album_name: album,  duration: Math.round(durationSecs),
+  });
+  const res = await fetch(`https://lrclib.net/api/get?${params}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const src = data.syncedLyrics || data.plainLyrics;
+  if (!src) return null;
+
+  if (data.syncedLyrics) {
+    return src.split('\n')
+      .map(line => {
+        const m = line.match(/^\[(\d+):(\d+\.\d+)\]\s*(.*)/);
+        if (!m) return null;
+        return { timeMs: (+m[1] * 60 + +m[2]) * 1000, text: m[3] };
+      })
+      .filter(l => l && l.text);
+  }
+
+  // plain lyrics — no timestamps, just display statically
+  return src.split('\n')
+    .filter(l => l.trim())
+    .map((text, i) => ({ timeMs: i * 3000, text }));
+}
+
+async function fetchLyrics(trackId, artist, title, album, durationMs) {
+  lyricsLines = [];
+  activeLineIndex = -1;
+  renderLyricsEmpty('Loading lyrics...');
+
+  try {
+    let lines = await fetchLyricsSpotify(trackId);
+    if (!lines) lines = await fetchLyricsLrclib(artist, title, album, durationMs / 1000);
+    if (lines?.length) {
+      lyricsLines = lines;
+      renderLyricsLines();
+    } else {
+      renderLyricsEmpty('No lyrics available');
+    }
+  } catch {
+    renderLyricsEmpty('No lyrics available');
+  }
+}
+
+function renderLyricsEmpty(msg) {
+  document.getElementById('lyrics-lines').innerHTML = '';
+  document.getElementById('lyrics-empty').textContent = msg;
+  document.getElementById('lyrics-empty').classList.remove('hidden');
+}
+
+function renderLyricsLines() {
+  document.getElementById('lyrics-empty').classList.add('hidden');
+  const container = document.getElementById('lyrics-lines');
+  container.innerHTML = '';
+  lyricsLines.forEach((line, i) => {
+    const el = document.createElement('div');
+    el.className = 'lyric-line';
+    el.textContent = line.text;
+    el.dataset.index = i;
+    container.appendChild(el);
+  });
+}
+
+function syncLyrics(posMs) {
+  if (!lyricsLines.length) return;
+
+  let idx = 0;
+  for (let i = 0; i < lyricsLines.length; i++) {
+    if (lyricsLines[i].timeMs <= posMs) idx = i;
+  }
+
+  if (idx === activeLineIndex) return;
+  activeLineIndex = idx;
+
+  const els = document.querySelectorAll('.lyric-line');
+  els.forEach((el, i) => {
+    el.classList.remove('active', 'past');
+    if (i === idx) el.classList.add('active');
+    else if (i < idx) el.classList.add('past');
+  });
+
+  // scroll active line to 1/3 from top
+  const activeEl = els[idx];
+  if (activeEl) {
+    const scroll = document.getElementById('lyrics-scroll');
+    const offset = activeEl.offsetTop - scroll.clientHeight / 3;
+    scroll.scrollTo({ top: offset, behavior: 'smooth' });
+  }
+}
+
 // ── Player UI ─────────────────────────────────────────────────────────────────
-const PLAY_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+const PLAY_ICON  = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const PAUSE_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
 
 let currentTrackId = null;
-let isPlaying = false;
+let pollInterval   = null;
+let isPlaying  = false;
 let durationMs = 0;
 let progressMs = 0;
 let lastPollAt = 0;
-let rafId = null;
 
 function formatMs(ms) {
   const s = Math.floor(ms / 1000);
@@ -488,20 +675,17 @@ function extractVibrantColor(img) {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0, 64, 64);
   const data = ctx.getImageData(0, 0, 64, 64).data;
-
   let best = null, bestScore = -1;
   for (let i = 0; i < data.length; i += 16) {
     const r = data[i], g = data[i+1], b = data[i+2];
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
     const lightness = (max + min) / 510;
-    const saturation = max === min ? 0 : (max - min) / (255 * (1 - Math.abs(2 * lightness - 1)));
-    const score = saturation * (1 - Math.abs(lightness - 0.45));
-    if (score > bestScore) { bestScore = score; best = [r, g, b]; }
+    const sat = max === min ? 0 : (max-min) / (255*(1-Math.abs(2*lightness-1)));
+    const score = sat * (1 - Math.abs(lightness - 0.45));
+    if (score > bestScore) { bestScore = score; best = [r,g,b]; }
   }
-
   if (!best) return null;
-  // darken slightly for pill background legibility
-  const [r, g, b] = best.map(v => Math.round(v * 0.65));
+  const [r,g,b] = best.map(v => Math.round(v * 0.65));
   return `rgb(${r},${g},${b})`;
 }
 
@@ -514,50 +698,44 @@ function setArt(url) {
     try {
       const color = extractVibrantColor(img);
       if (color) document.getElementById('year').style.background = color;
-    } catch (e) {}
+    } catch {}
   };
   img.src = url;
-  document.getElementById('bg-art').style.backgroundImage = `url('${url}')`;
+  const safeUrl = url.replace(/'/g, '%27');
+  document.getElementById('bg-art').style.backgroundImage = `url('${safeUrl}')`;
 }
 
 function renderIdle() {
   document.getElementById('idle').classList.remove('hidden');
-  document.getElementById('info').style.opacity = '0.3';
-  document.getElementById('progress-wrap').style.opacity = '0.3';
-  document.getElementById('controls').style.opacity = '0.3';
-  document.getElementById('art-wrap').style.opacity = '0.4';
+  ['info','progress-wrap','controls','art-wrap'].forEach(id => {
+    document.getElementById(id).style.opacity = id === 'art-wrap' ? '0.4' : '0.3';
+  });
 }
 
 function renderActive() {
   document.getElementById('idle').classList.add('hidden');
-  document.getElementById('info').style.opacity = '';
-  document.getElementById('progress-wrap').style.opacity = '';
-  document.getElementById('controls').style.opacity = '';
-  document.getElementById('art-wrap').style.opacity = '';
+  ['info','progress-wrap','controls','art-wrap'].forEach(id => {
+    document.getElementById(id).style.opacity = '';
+  });
 }
 
 function updateProgress(elapsed) {
   const pos = Math.min(progressMs + elapsed, durationMs);
   const pct = durationMs > 0 ? (pos / durationMs) * 100 : 0;
-  document.getElementById('progress-fill').style.transition = elapsed > 0 ? 'none' : '';
+  document.getElementById('progress-fill').style.transition = elapsed === 0 ? 'none' : '';
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('time-current').textContent = formatMs(pos);
   document.getElementById('time-total').textContent   = formatMs(durationMs);
+  syncLyrics(pos);
 }
 
-function tickProgress() {
-  if (isPlaying) {
-    const elapsed = Date.now() - lastPollAt;
-    updateProgress(elapsed);
-  }
-  rafId = requestAnimationFrame(tickProgress);
+function tick() {
+  if (isPlaying) updateProgress(Date.now() - lastPollAt);
+  requestAnimationFrame(tick);
 }
 
 function applyState(state) {
-  if (!state || !state.item) {
-    renderIdle();
-    return;
-  }
+  if (!state || !state.item) { renderIdle(); return; }
 
   renderActive();
 
@@ -567,67 +745,58 @@ function applyState(state) {
   progressMs = state.progress_ms;
   lastPollAt = Date.now();
 
-  // Art
   const artUrl = track.album?.images?.[0]?.url;
   if (artUrl) setArt(artUrl);
 
-  // Info
   document.getElementById('track-name').textContent  = track.name;
   document.getElementById('artist-name').textContent = track.artists?.map(a => a.name).join(', ') ?? '—';
+  document.getElementById('album-line').textContent  = track.album?.name ?? '';
+  document.getElementById('year').textContent        = track.album?.release_date?.slice(0,4) ?? '';
 
-  const year = track.album?.release_date?.slice(0, 4) ?? '';
-  const albumName = track.album?.name ?? '';
-  document.getElementById('album-line').textContent = albumName || '';
-  document.getElementById('year').textContent = year;
-
-  // Play/pause button
   document.getElementById('btn-play-pause').innerHTML = isPlaying ? PAUSE_ICON : PLAY_ICON;
 
-  // Track changed?
-  currentTrackId = track.id;
+  if (track.id !== currentTrackId) {
+    currentTrackId = track.id;
+    fetchLyrics(
+      track.id,
+      track.artists?.[0]?.name ?? '',
+      track.name,
+      track.album?.name ?? '',
+      track.duration_ms
+    );
+  }
 
   updateProgress(0);
 }
 
 // ── Controls ──────────────────────────────────────────────────────────────────
 document.getElementById('btn-play-pause').addEventListener('click', async () => {
-  if (isPlaying) {
-    await apiPut('/me/player/pause');
-    isPlaying = false;
-  } else {
-    await apiPut('/me/player/play');
-    isPlaying = true;
-  }
+  if (isPlaying) { await apiPut('/me/player/pause'); isPlaying = false; }
+  else           { await apiPut('/me/player/play');  isPlaying = true;  }
   document.getElementById('btn-play-pause').innerHTML = isPlaying ? PAUSE_ICON : PLAY_ICON;
 });
 
 document.getElementById('btn-next').addEventListener('click', async () => {
   await apiPost('/me/player/next');
-  setTimeout(poll, 500);
+  setTimeout(poll, 800);
 });
 
 document.getElementById('btn-prev').addEventListener('click', async () => {
-  // If more than 3s in, restart track; otherwise go to previous
-  const elapsed = Date.now() - lastPollAt;
-  const pos = progressMs + elapsed;
+  const pos = progressMs + (Date.now() - lastPollAt);
   if (pos > 3000) {
     await apiPut('/me/player/seek?position_ms=0');
-    progressMs = 0;
-    lastPollAt = Date.now();
+    progressMs = 0; lastPollAt = Date.now();
   } else {
     await apiPost('/me/player/previous');
-    setTimeout(poll, 500);
+    setTimeout(poll, 800);
   }
 });
 
-// Seek on progress bar tap
 document.getElementById('progress-bar').addEventListener('click', async (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
-  const pct  = (e.clientX - rect.left) / rect.width;
-  const pos  = Math.floor(pct * durationMs);
+  const pos  = Math.floor(((e.clientX - rect.left) / rect.width) * durationMs);
   await apiPut(`/me/player/seek?position_ms=${pos}`);
-  progressMs = pos;
-  lastPollAt = Date.now();
+  progressMs = pos; lastPollAt = Date.now();
 });
 
 // ── Polling ───────────────────────────────────────────────────────────────────
@@ -638,27 +807,18 @@ async function poll() {
 
 function startPlayer() {
   document.getElementById('auth-screen').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('layout').classList.remove('hidden');
   poll();
-  setInterval(poll, 3000);
-  rafId = requestAnimationFrame(tickProgress);
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(poll, 3000);
+  requestAnimationFrame(tick);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {
-  const params = new URLSearchParams(location.search);
-  const code   = params.get('code');
-
-  if (code) {
-    // Coming back from Spotify auth
-    await handleCallback(code);
-    return;
-  }
-
-  if (getAccessToken()) {
-    startPlayer();
-  }
-  // else: auth screen is already visible
+  const code = new URLSearchParams(location.search).get('code');
+  if (code) { await handleCallback(code); return; }
+  if (getAccessToken()) startPlayer();
 })();
 </script>
 </body>
