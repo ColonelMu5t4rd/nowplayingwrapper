@@ -354,7 +354,7 @@
     #artist-name { font-size: 15px; }
     #album-line { font-size: 13px; }
 
-    #lyrics-card { display: block; max-width: 320px; }
+    #lyrics-card { display: block; max-width: 400 px; }
   }
 </style>
 </head>
@@ -684,9 +684,11 @@ let   tempo     = 120;
 function resizeCanvas() {
   bgCanvas.width  = window.innerWidth;
   bgCanvas.height = window.innerHeight;
+  if (blobs.length) initBlobs(blobs.map(b => b.color));
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
+initBlobs(['rgb(80,100,50)', 'rgb(60,80,100)', 'rgb(100,70,40)', 'rgb(90,55,80)', 'rgb(50,90,75)']);
 
 function initBlobs(colors) {
   const w = bgCanvas.width, h = bgCanvas.height;
