@@ -11,11 +11,11 @@
     --bg: #f5f0e8;
     --surface: #ede6d6;
     --text: #2c2a24;
-    --subtext: #7a7560;
+    --subtext: #4a4838;
     --accent: #6b6b3a;
     --btn-bg: rgba(0,0,0,0.07);
     --btn-hover: rgba(0,0,0,0.13);
-    --card-bg: rgba(245,240,232,0.82);
+    --card-bg: rgba(245,240,232,0.52);
   }
 
   body {
@@ -30,14 +30,11 @@
     overflow: hidden;
   }
 
-  #bg-art {
+  #bg-canvas {
     position: fixed;
-    inset: -40px;
-    background-size: cover;
-    background-position: center;
-    filter: blur(60px) brightness(0.55) saturate(1.4);
-    transition: background-image 1s ease;
+    inset: 0;
     z-index: 0;
+    filter: blur(32px) brightness(0.72);
   }
 
   /* ── Layout ── */
@@ -66,6 +63,7 @@
     border: 0.5px solid rgba(255,255,255,0.5);
     align-items: center;
     gap: 24px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.22);
   }
 
   #art-wrap {
@@ -174,7 +172,7 @@
     display: flex;
     justify-content: space-between;
     font-size: 11px;
-    color: #aaa89a;
+    color: var(--subtext);
     font-variant-numeric: tabular-nums;
   }
 
@@ -346,7 +344,7 @@
     }
 
     #app {
-      width: 320px;
+      width: 400px;
       flex-shrink: 0;
     }
 
@@ -356,13 +354,13 @@
     #artist-name { font-size: 15px; }
     #album-line { font-size: 13px; }
 
-    #lyrics-card { display: block; }
+    #lyrics-card { display: block; max-width: 320px; }
   }
 </style>
 </head>
 <body>
 
-<div id="bg-art"></div>
+<canvas id="bg-canvas"></canvas>
 
 <div id="auth-screen">
   <h1>Now Playing</h1>
@@ -541,6 +539,12 @@ async function apiPost(path) {
   });
 }
 
+// ── Audio features ────────────────────────────────────────────────────────────
+async function fetchAudioFeatures(trackId) {
+  const data = await apiGet(`/audio-features/${trackId}`);
+  if (data?.tempo) { tempo = data.tempo; lastBeat = -1; }
+}
+
 // ── Lyrics ────────────────────────────────────────────────────────────────────
 let lyricsLines = []; // [{timeMs, text}]
 let lastLyricsTrackId = null;
@@ -669,24 +673,101 @@ function formatMs(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function extractVibrantColor(img) {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 64;
-  const ctx = canvas.getContext('2d');
+// ── Canvas background ─────────────────────────────────────────────────────────
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx    = bgCanvas.getContext('2d');
+let   blobs    = [];
+let   blobPulse = 0;
+let   lastBeat  = -1;
+let   tempo     = 120;
+
+function resizeCanvas() {
+  bgCanvas.width  = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function initBlobs(colors) {
+  const w = bgCanvas.width, h = bgCanvas.height;
+  blobs = Array.from({ length: 6 }, (_, i) => ({
+    x:     Math.random() * w,
+    y:     Math.random() * h,
+    r:     Math.min(w, h) * (0.22 + Math.random() * 0.28),
+    vx:    (Math.random() - 0.5) * 0.6,
+    vy:    (Math.random() - 0.5) * 0.6,
+    color: colors[i % colors.length],
+    wave:  Math.random() * Math.PI * 2,
+  }));
+}
+
+function drawBg() {
+  const w = bgCanvas.width, h = bgCanvas.height;
+  bgCtx.fillStyle = '#0e0d08';
+  bgCtx.fillRect(0, 0, w, h);
+
+  const pulse = 1 + blobPulse * 0.3;
+  if (blobPulse > 0) blobPulse = Math.max(0, blobPulse - 0.035);
+
+  bgCtx.save();
+  bgCtx.globalCompositeOperation = 'screen';
+  blobs.forEach(b => {
+    b.x    += b.vx;
+    b.y    += b.vy;
+    b.wave += 0.007;
+    if (b.x < -b.r * 2) b.x = w + b.r;
+    if (b.x > w + b.r * 2) b.x = -b.r;
+    if (b.y < -b.r * 2) b.y = h + b.r;
+    if (b.y > h + b.r * 2) b.y = -b.r;
+
+    const r = b.r * pulse * (1 + Math.sin(b.wave) * 0.18);
+    const g = bgCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+    g.addColorStop(0,   b.color + 'cc');
+    g.addColorStop(0.5, b.color + '44');
+    g.addColorStop(1,   b.color + '00');
+    bgCtx.beginPath();
+    bgCtx.arc(b.x, b.y, r, 0, Math.PI * 2);
+    bgCtx.fillStyle = g;
+    bgCtx.fill();
+  });
+  bgCtx.restore();
+}
+
+function checkBeat(posMs) {
+  const beatMs = 60000 / tempo;
+  const beat   = Math.floor(posMs / beatMs);
+  if (beat !== lastBeat) { lastBeat = beat; blobPulse = 1; }
+}
+
+function extractColors(img, count = 5) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0, 64, 64);
   const data = ctx.getImageData(0, 0, 64, 64).data;
-  let best = null, bestScore = -1;
-  for (let i = 0; i < data.length; i += 16) {
+
+  const candidates = [];
+  for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i+1], b = data[i+2];
     const max = Math.max(r,g,b), min = Math.min(r,g,b);
     const lightness = (max + min) / 510;
-    const sat = max === min ? 0 : (max-min) / (255*(1-Math.abs(2*lightness-1)));
-    const score = sat * (1 - Math.abs(lightness - 0.45));
-    if (score > bestScore) { bestScore = score; best = [r,g,b]; }
+    const sat = max === min ? 0 : (max-min)/(255*(1-Math.abs(2*lightness-1)));
+    candidates.push({ r, g, b, score: sat * (1 - Math.abs(lightness - 0.5)) });
   }
-  if (!best) return null;
-  const [r,g,b] = best.map(v => Math.round(v * 0.65));
-  return `rgb(${r},${g},${b})`;
+  candidates.sort((a, b) => b.score - a.score);
+
+  const picked = [];
+  for (const p of candidates) {
+    if (picked.length >= count) break;
+    const diverse = picked.every(q => {
+      const dr = p.r-q.r, dg = p.g-q.g, db = p.b-q.b;
+      return Math.sqrt(dr*dr + dg*dg + db*db) > 55;
+    });
+    if (diverse || picked.length === 0) picked.push(p);
+  }
+  return picked.length
+    ? picked.map(({ r, g, b }) => `rgb(${r},${g},${b})`)
+    : ['rgb(80,100,50)'];
 }
 
 function setArt(url) {
@@ -696,13 +777,12 @@ function setArt(url) {
   img.onload = () => {
     img.classList.remove('loading');
     try {
-      const color = extractVibrantColor(img);
-      if (color) document.getElementById('year').style.background = color;
+      const colors = extractColors(img);
+      document.getElementById('year').style.background = colors[0];
+      initBlobs(colors);
     } catch {}
   };
   img.src = url;
-  const safeUrl = url.replace(/'/g, '%27');
-  document.getElementById('bg-art').style.backgroundImage = `url('${safeUrl}')`;
 }
 
 function renderIdle() {
@@ -730,7 +810,12 @@ function updateProgress(elapsed) {
 }
 
 function tick() {
-  if (isPlaying) updateProgress(Date.now() - lastPollAt);
+  if (isPlaying) {
+    const elapsed = Date.now() - lastPollAt;
+    updateProgress(elapsed);
+    checkBeat(Math.min(progressMs + elapsed, durationMs));
+  }
+  drawBg();
   requestAnimationFrame(tick);
 }
 
@@ -757,6 +842,7 @@ function applyState(state) {
 
   if (track.id !== currentTrackId) {
     currentTrackId = track.id;
+    fetchAudioFeatures(track.id);
     fetchLyrics(
       track.id,
       track.artists?.[0]?.name ?? '',
