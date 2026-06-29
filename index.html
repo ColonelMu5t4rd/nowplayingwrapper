@@ -55,15 +55,49 @@
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    position: relative;
     background: var(--card-bg);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-radius: 20px;
+    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    border-radius: 24px;
     padding: 20px;
-    border: 0.5px solid rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.35);
+    box-shadow:
+      0 10px 40px rgba(0,0,0,0.18),
+      inset 0 1px 1px rgba(255,255,255,0.7),
+      inset 0 0 0 1px rgba(255,255,255,0.05),
+      inset 0 -8px 24px rgba(255,255,255,0.06);
     align-items: center;
     gap: 24px;
     text-shadow: 0 1px 4px rgba(0,0,0,0.22);
+  }
+
+  /* liquid-glass surface glint — highlight that slowly drifts across the glass */
+  #app::before, #lyrics-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(135deg,
+      rgba(255,255,255,0.5) 0%,
+      rgba(255,255,255,0.08) 22%,
+      rgba(255,255,255,0) 45%);
+    background-size: 250% 250%;
+    background-position: 0% 0%;
+    animation: glint-drift 16s ease-in-out infinite alternate;
+  }
+
+  #lyrics-card::before { animation-delay: -8s; }
+
+  @keyframes glint-drift {
+    from { background-position: 0% 0%; }
+    to   { background-position: 100% 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #app::before, #lyrics-card::before { animation: none; }
   }
 
   #art-wrap {
@@ -281,10 +315,15 @@
     flex: 1;
     min-width: 0;
     background: var(--card-bg);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-radius: 20px;
-    border: 0.5px solid rgba(255,255,255,0.5);
+    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.35);
+    box-shadow:
+      0 10px 40px rgba(0,0,0,0.18),
+      inset 0 1px 1px rgba(255,255,255,0.7),
+      inset 0 0 0 1px rgba(255,255,255,0.05),
+      inset 0 -8px 24px rgba(255,255,255,0.06);
     overflow: hidden;
     position: relative;
   }
