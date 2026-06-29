@@ -164,23 +164,6 @@
   .badge.genre { background: rgba(107,107,58,0.22); text-transform: capitalize; }
   .badge.explicit { background: rgba(0,0,0,0.20); font-size: 10px; }
 
-  .badge.pop {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .pop-track {
-    width: 36px;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(0,0,0,0.15);
-    overflow: hidden;
-  }
-
-  .pop-fill { display: block; height: 100%; background: var(--accent); }
-
   #meta {
     width: 100%;
     display: flex;
@@ -629,7 +612,7 @@ function warnDeprecated(endpoint) {
 }
 
 // ── Badges / meta ─────────────────────────────────────────────────────────────
-let curGenres = [], curPopularity = 0, curExplicit = false;
+let curGenres = [], curExplicit = false;
 
 function renderBadges() {
   const el = document.getElementById('badges');
@@ -648,31 +631,10 @@ function renderBadges() {
     b.textContent = 'EXPLICIT';
     el.appendChild(b);
   }
-
-  const p = document.createElement('span');
-  p.className = 'badge pop';
-  p.title = 'Popularity';
-  const track = document.createElement('span');
-  track.className = 'pop-track';
-  const fill = document.createElement('span');
-  fill.className = 'pop-fill';
-  fill.style.width = curPopularity + '%';
-  track.appendChild(fill);
-  p.appendChild(track);
-  p.appendChild(document.createTextNode(curPopularity));
-  el.appendChild(p);
 }
 
-async function fetchTrackMeta(trackId, artistId) {
-  const [track, artist] = await Promise.all([
-    apiGet(`/tracks/${trackId}`),
-    artistId ? apiGet(`/artists/${artistId}`) : Promise.resolve(null),
-  ]);
-  console.log('[now-playing] track meta', { track, artist });
-  if (track) {
-    if (typeof track.popularity === 'number') curPopularity = track.popularity;
-    curExplicit = !!track.explicit;
-  }
+async function fetchTrackMeta(artistId) {
+  const artist = artistId ? await apiGet(`/artists/${artistId}`) : null;
   curGenres = artist?.genres?.slice(0, 2) ?? [];
   renderBadges();
 }
@@ -1060,12 +1022,11 @@ function applyState(state) {
     currentTrackId = track.id;
     nextBgMode();
 
-    curPopularity = track.popularity ?? 0;
-    curExplicit   = !!track.explicit;
+    curExplicit = !!track.explicit;
     renderBadges();
 
     fetchAudioFeatures(track.id);
-    fetchTrackMeta(track.id, track.artists?.[0]?.id);
+    fetchTrackMeta(track.artists?.[0]?.id);
     fetchQueue();
     fetchLyrics(
       track.id,
