@@ -663,12 +663,16 @@ function renderBadges() {
   el.appendChild(p);
 }
 
-async function fetchArtistGenres(artistId) {
-  curGenres = [];
-  if (artistId) {
-    const data = await apiGet(`/artists/${artistId}`);
-    curGenres = data?.genres?.slice(0, 2) ?? [];
+async function fetchTrackMeta(trackId, artistId) {
+  const [track, artist] = await Promise.all([
+    apiGet(`/tracks/${trackId}`),
+    artistId ? apiGet(`/artists/${artistId}`) : Promise.resolve(null),
+  ]);
+  if (track) {
+    if (typeof track.popularity === 'number') curPopularity = track.popularity;
+    curExplicit = !!track.explicit;
   }
+  curGenres = artist?.genres?.slice(0, 2) ?? [];
   renderBadges();
 }
 
@@ -1060,7 +1064,7 @@ function applyState(state) {
     renderBadges();
 
     fetchAudioFeatures(track.id);
-    fetchArtistGenres(track.artists?.[0]?.id);
+    fetchTrackMeta(track.id, track.artists?.[0]?.id);
     fetchQueue();
     fetchLyrics(
       track.id,
