@@ -244,8 +244,7 @@
     background: var(--btn-hover);
   }
 
-  .ctrl-btn:focus-visible,
-  body.using-remote .ctrl-btn:focus {
+  .ctrl-btn:focus {
     color: var(--text);
     background: var(--btn-hover);
     box-shadow: 0 0 0 3px var(--accent);
@@ -1075,51 +1074,6 @@ document.getElementById('progress-bar').addEventListener('click', async (e) => {
   progressMs = pos; lastPollAt = Date.now();
 });
 
-// ── Remote / D-pad navigation ─────────────────────────────────────────────────
-function controlOrder() {
-  return [
-    document.getElementById('btn-prev'),
-    document.getElementById('btn-play-pause'),
-    document.getElementById('btn-next'),
-  ];
-}
-
-function focusControls() {
-  document.body.classList.add('using-remote');
-  document.getElementById('btn-play-pause').focus();
-}
-
-// TEMP remote-key debug overlay — remove once nav is confirmed
-document.addEventListener('keydown', (e) => {
-  let dbg = document.getElementById('keydbg');
-  if (!dbg) {
-    dbg = document.createElement('div');
-    dbg.id = 'keydbg';
-    dbg.style.cssText = 'position:fixed;top:8px;left:8px;z-index:9999;background:#000;color:#0f0;font:14px monospace;padding:6px 10px;border-radius:6px;pointer-events:none;';
-    document.body.appendChild(dbg);
-  }
-  dbg.textContent = `key="${e.key}" code="${e.code}" keyCode=${e.keyCode}`;
-}, true);
-
-document.addEventListener('keydown', (e) => {
-  const order = controlOrder();
-  const i = order.indexOf(document.activeElement);
-
-  if (e.key === 'ArrowRight') {
-    e.preventDefault();
-    document.body.classList.add('using-remote');
-    order[i < 0 ? 1 : Math.min(order.length - 1, i + 1)].focus();
-  } else if (e.key === 'ArrowLeft') {
-    e.preventDefault();
-    document.body.classList.add('using-remote');
-    order[i < 0 ? 1 : Math.max(0, i - 1)].focus();
-  } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && i < 0) {
-    // any vertical press while nothing is focused jumps straight to controls
-    e.preventDefault();
-    focusControls();
-  }
-});
-
 // ── Polling ───────────────────────────────────────────────────────────────────
 async function poll() {
   const state = await apiGet('/me/player');
@@ -1133,8 +1087,8 @@ function startPlayer() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = setInterval(poll, 3000);
   requestAnimationFrame(tick);
-  // land focus on play/pause so the remote is immediately on the controls
-  setTimeout(focusControls, 100);
+  // land focus on play/pause so the TV's native d-pad navigation starts on the controls
+  setTimeout(() => document.getElementById('btn-play-pause').focus(), 100);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
