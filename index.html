@@ -439,7 +439,7 @@
     #artist-name { font-size: 15px; }
     #album-line { font-size: 13px; }
 
-    #lyrics-card { display: block; max-width: 400 px; }
+    #lyrics-card { display: block; max-width: 400px; }
   }
 </style>
 </head>
@@ -602,14 +602,23 @@ async function handleCallback(code) {
 }
 
 // ── Spotify API ───────────────────────────────────────────────────────────────
+// null = nothing playing (204); API_ERR = transient failure (keep last state)
+const API_ERR = Symbol('api-error');
+
 async function apiGet(path) {
   await ensureToken();
-  const res = await fetch(`https://api.spotify.com/v1${path}`, {
+  let res = await fetch(`https://api.spotify.com/v1${path}`, {
     headers: { Authorization: `Bearer ${getAccessToken()}` },
   });
-  if (res.status === 401) { logout(); return null; }
+  if (res.status === 401) {
+    await refreshAccessToken();
+    res = await fetch(`https://api.spotify.com/v1${path}`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+    if (res.status === 401) { logout(); return API_ERR; }
+  }
   if (res.status === 204 || res.status === 202) return null;
-  if (!res.ok) return null;
+  if (!res.ok) return API_ERR;
   return res.json();
 }
 
@@ -635,7 +644,7 @@ let audioFeat = { energy: 0.5, valence: 0.5 };
 
 async function fetchAudioFeatures(trackId) {
   const data = await apiGet(`/audio-features/${trackId}`);
-  if (data) {
+  if (data && data !== API_ERR) {
     audioFeat = { energy: data.energy ?? 0.5, valence: data.valence ?? 0.5 };
   } else {
     audioFeat = { energy: 0.5, valence: 0.5 };
@@ -678,13 +687,13 @@ function renderBadges() {
 
 async function fetchTrackMeta(artistId) {
   const artist = artistId ? await apiGet(`/artists/${artistId}`) : null;
-  curGenres = artist?.genres?.slice(0, 2) ?? [];
+  curGenres = (artist && artist !== API_ERR && artist.genres?.slice(0, 2)) || [];
   renderBadges();
 }
 
 async function fetchQueue() {
   const data = await apiGet('/me/player/queue');
-  const next = data?.queue?.[0];
+  const next = (data && data !== API_ERR) ? data.queue?.[0] : null;
   const el = document.getElementById('upnext-line');
   el.innerHTML = '';
   if (next) {
@@ -837,15 +846,22 @@ let bgSpin   = 0;
 let rings    = [];
 let lastRingClock = 0;
 let clock     = 0; // advances only while playing → freezes on pause
+let bgDirty   = true; // force one repaint after palette/resize/pause changes
+
+// Cap the backing store so 4K TVs don't repaint a huge multiply+blur buffer
+// every frame. The 40px CSS blur hides the upscale.
+const BG_MAX_W = 1280;
 
 function resizeCanvas() {
-  bgCanvas.width  = window.innerWidth;
-  bgCanvas.height = window.innerHeight;
+  const scale = Math.min(1, BG_MAX_W / window.innerWidth);
+  bgCanvas.width  = Math.round(window.innerWidth  * scale);
+  bgCanvas.height = Math.round(window.innerHeight * scale);
+  bgDirty = true;
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-function setPalette(colors) { bgColors = colors; }
+function setPalette(colors) { bgColors = colors; bgDirty = true; }
 
 // pick the next mode each track change so consecutive tracks differ
 function nextBgMode() {
@@ -991,7 +1007,11 @@ function extractColors(img, count = 5) {
     : [[80,100,50]];
 }
 
+let currentArtUrl = null;
+
 function setArt(url) {
+  if (url === currentArtUrl) return;
+  currentArtUrl = url;
   const img = document.getElementById('art');
   img.classList.add('loading');
   img.crossOrigin = 'anonymous';
@@ -1004,6 +1024,7 @@ function setArt(url) {
       setPalette(colors);
     } catch {}
   };
+  img.onerror = () => { img.classList.remove('loading'); currentArtUrl = null; };
   img.src = url;
 }
 
@@ -1033,7 +1054,11 @@ function updateProgress(elapsed) {
 
 function tick() {
   if (isPlaying) updateProgress(Date.now() - lastPollAt);
-  drawBg();
+  // repaint only when something moves: playing, rings still fading, or forced
+  if (isPlaying || rings.length || bgDirty) {
+    drawBg();
+    bgDirty = false;
+  }
   requestAnimationFrame(tick);
 }
 
@@ -1116,6 +1141,7 @@ document.getElementById('progress-bar').addEventListener('click', async (e) => {
 // ── Polling ───────────────────────────────────────────────────────────────────
 async function poll() {
   const state = await apiGet('/me/player');
+  if (state === API_ERR) return; // transient failure — keep last state on screen
   applyState(state);
 }
 
