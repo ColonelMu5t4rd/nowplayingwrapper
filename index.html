@@ -668,6 +668,7 @@ async function fetchTrackMeta(trackId, artistId) {
     apiGet(`/tracks/${trackId}`),
     artistId ? apiGet(`/artists/${artistId}`) : Promise.resolve(null),
   ]);
+  console.log('[now-playing] track meta', { track, artist });
   if (track) {
     if (typeof track.popularity === 'number') curPopularity = track.popularity;
     curExplicit = !!track.explicit;
