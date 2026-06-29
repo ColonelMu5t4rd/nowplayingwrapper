@@ -388,9 +388,13 @@
     #app {
       width: 400px;
       flex-shrink: 0;
+      justify-content: center;
+      gap: 16px;
+      overflow: hidden;
     }
 
-    #art-wrap { aspect-ratio: 1; }
+    /* cap art height so the whole card fits shorter TV viewports */
+    #art-wrap { width: min(100%, 42vh); aspect-ratio: 1; }
 
     #track-name { font-size: 22px; }
     #artist-name { font-size: 15px; }
