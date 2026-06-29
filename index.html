@@ -244,7 +244,7 @@
     background: var(--btn-hover);
   }
 
-  .ctrl-btn:focus {
+  .ctrl-btn:focus-visible {
     color: var(--text);
     background: var(--btn-hover);
     box-shadow: 0 0 0 3px var(--accent);
@@ -1087,8 +1087,6 @@ function startPlayer() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = setInterval(poll, 3000);
   requestAnimationFrame(tick);
-  // land focus on play/pause so the TV's native d-pad navigation starts on the controls
-  setTimeout(() => document.getElementById('btn-play-pause').focus(), 100);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
