@@ -141,6 +141,65 @@
     transition: background 0.6s ease;
   }
 
+  #badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  #badges:empty { display: none; }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: rgba(0,0,0,0.10);
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .badge.genre { background: rgba(107,107,58,0.22); text-transform: capitalize; }
+  .badge.explicit { background: rgba(0,0,0,0.20); font-size: 10px; }
+
+  .badge.pop {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pop-track {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+
+  .pop-fill { display: block; height: 100%; background: var(--accent); }
+
+  #meta {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  #meta:empty, #meta > div:empty { display: none; }
+
+  #device-line, #upnext-line {
+    font-size: 12px;
+    color: var(--subtext);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #upnext-line strong { color: var(--text); font-weight: 600; }
+
   #progress-wrap {
     width: 100%;
     display: flex;
@@ -380,6 +439,7 @@
         <div id="track-name">—</div>
         <div id="artist-name">—</div>
         <div id="album-line"></div>
+        <div id="badges"></div>
       </div>
       <div id="year"></div>
     </div>
@@ -406,6 +466,11 @@
           <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/>
         </svg>
       </button>
+    </div>
+
+    <div id="meta">
+      <div id="device-line"></div>
+      <div id="upnext-line"></div>
     </div>
 
     <div id="idle" class="hidden">
@@ -540,9 +605,100 @@ async function apiPost(path) {
 }
 
 // ── Audio features ────────────────────────────────────────────────────────────
+let audioFeat = { energy: 0.5, valence: 0.5, danceability: 0.5 };
+let beatTimes = [];
+let beatIdx   = 0;
+
 async function fetchAudioFeatures(trackId) {
   const data = await apiGet(`/audio-features/${trackId}`);
-  if (data?.tempo) { tempo = data.tempo; lastBeat = -1; }
+  if (data) {
+    if (data.tempo) tempo = data.tempo;
+    audioFeat = {
+      energy:       data.energy       ?? 0.5,
+      valence:      data.valence      ?? 0.5,
+      danceability: data.danceability ?? 0.5,
+    };
+  } else {
+    audioFeat = { energy: 0.5, valence: 0.5, danceability: 0.5 };
+    warnDeprecated('audio-features');
+  }
+}
+
+async function fetchAudioAnalysis(trackId) {
+  beatTimes = []; beatIdx = 0; lastBeat = -1;
+  const data = await apiGet(`/audio-analysis/${trackId}`);
+  if (data?.beats?.length) beatTimes = data.beats.map(b => b.start * 1000);
+  else warnDeprecated('audio-analysis');
+}
+
+let _warnedEndpoints = new Set();
+function warnDeprecated(endpoint) {
+  if (_warnedEndpoints.has(endpoint)) return;
+  _warnedEndpoints.add(endpoint);
+  console.warn(
+    `[now-playing] /${endpoint} returned no data — likely deprecated for this app ` +
+    `(Spotify removed it for apps created after Nov 2024). ` +
+    `Falling back to ${endpoint === 'audio-analysis' ? '120 BPM beat estimate' : 'neutral animation intensity'}.`
+  );
+}
+
+// ── Badges / meta ─────────────────────────────────────────────────────────────
+let curGenres = [], curPopularity = 0, curExplicit = false;
+
+function renderBadges() {
+  const el = document.getElementById('badges');
+  el.innerHTML = '';
+
+  curGenres.slice(0, 2).forEach(g => {
+    const b = document.createElement('span');
+    b.className = 'badge genre';
+    b.textContent = g;
+    el.appendChild(b);
+  });
+
+  if (curExplicit) {
+    const b = document.createElement('span');
+    b.className = 'badge explicit';
+    b.textContent = 'EXPLICIT';
+    el.appendChild(b);
+  }
+
+  const p = document.createElement('span');
+  p.className = 'badge pop';
+  p.title = 'Popularity';
+  const track = document.createElement('span');
+  track.className = 'pop-track';
+  const fill = document.createElement('span');
+  fill.className = 'pop-fill';
+  fill.style.width = curPopularity + '%';
+  track.appendChild(fill);
+  p.appendChild(track);
+  p.appendChild(document.createTextNode(curPopularity));
+  el.appendChild(p);
+}
+
+async function fetchArtistGenres(artistId) {
+  curGenres = [];
+  if (artistId) {
+    const data = await apiGet(`/artists/${artistId}`);
+    curGenres = data?.genres?.slice(0, 2) ?? [];
+  }
+  renderBadges();
+}
+
+async function fetchQueue() {
+  const data = await apiGet('/me/player/queue');
+  const next = data?.queue?.[0];
+  const el = document.getElementById('upnext-line');
+  el.innerHTML = '';
+  if (next) {
+    el.appendChild(document.createTextNode('Up next: '));
+    const strong = document.createElement('strong');
+    strong.textContent = next.name;
+    el.appendChild(strong);
+    const artists = next.artists?.map(a => a.name).join(', ') ?? '';
+    if (artists) el.appendChild(document.createTextNode(' — ' + artists));
+  }
 }
 
 // ── Lyrics ────────────────────────────────────────────────────────────────────
@@ -673,73 +829,164 @@ function formatMs(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// ── Canvas background ─────────────────────────────────────────────────────────
+// ── Canvas background (kaleidoscope, cycles mode per track) ────────────────────
 const bgCanvas = document.getElementById('bg-canvas');
 const bgCtx    = bgCanvas.getContext('2d');
-let   blobs    = [];
-let   blobPulse = 0;
-let   lastBeat  = -1;
-let   tempo     = 120;
+const SEGMENTS = 8;
+const BG_MODES = ['orbs', 'shards', 'ribbons', 'emitters'];
+
+let bgColors = [[80,100,50], [60,80,100], [100,70,40], [90,55,80], [50,90,75]];
+let bgMode   = 'orbs';
+let bgSpin   = 0;
+let rings    = [];
+let blobPulse = 0;
+let lastBeat  = -1;
+let tempo     = 120;
+let clock     = 0; // advances only while playing → freezes on pause
 
 function resizeCanvas() {
   bgCanvas.width  = window.innerWidth;
   bgCanvas.height = window.innerHeight;
-  if (blobs.length) initBlobs(blobs.map(b => b.color));
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
-initBlobs([[80,100,50], [60,80,100], [100,70,40], [90,55,80], [50,90,75]]);
 
-function initBlobs(colors) {
-  const w = bgCanvas.width, h = bgCanvas.height;
-  blobs = Array.from({ length: 6 }, (_, i) => ({
-    x:     Math.random() * w,
-    y:     Math.random() * h,
-    r:     Math.min(w, h) * (0.22 + Math.random() * 0.28),
-    vx:    (Math.random() - 0.5) * 0.6,
-    vy:    (Math.random() - 0.5) * 0.6,
-    color: colors[i % colors.length],
-    wave:  Math.random() * Math.PI * 2,
-  }));
+function setPalette(colors) { bgColors = colors; }
+
+// pick the next mode each track change so consecutive tracks differ
+function nextBgMode() {
+  const others = BG_MODES.filter(m => m !== bgMode);
+  bgMode = others[Math.floor(Math.random() * others.length)];
+  rings = [];
 }
 
-function drawBg() {
+function wedge(fn) {
   const w = bgCanvas.width, h = bgCanvas.height;
-  bgCtx.fillStyle = '#0e0d08';
-  bgCtx.fillRect(0, 0, w, h);
-
-  const pulse = 1 + blobPulse * 0.3;
-  if (blobPulse > 0) blobPulse = Math.max(0, blobPulse - 0.035);
-
   bgCtx.save();
+  bgCtx.translate(w / 2, h / 2);
   bgCtx.globalCompositeOperation = 'screen';
-  blobs.forEach(b => {
-    b.x    += b.vx;
-    b.y    += b.vy;
-    b.wave += 0.007;
-    if (b.x < -b.r * 2) b.x = w + b.r;
-    if (b.x > w + b.r * 2) b.x = -b.r;
-    if (b.y < -b.r * 2) b.y = h + b.r;
-    if (b.y > h + b.r * 2) b.y = -b.r;
-
-    const r = b.r * pulse * (1 + Math.sin(b.wave) * 0.18);
-    const [cr, cg, cb] = b.color;
-    const g = bgCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-    g.addColorStop(0,   `rgba(${cr},${cg},${cb},0.8)`);
-    g.addColorStop(0.5, `rgba(${cr},${cg},${cb},0.27)`);
-    g.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
-    bgCtx.beginPath();
-    bgCtx.arc(b.x, b.y, r, 0, Math.PI * 2);
-    bgCtx.fillStyle = g;
-    bgCtx.fill();
-  });
+  for (let s = 0; s < SEGMENTS; s++) {
+    bgCtx.save();
+    bgCtx.rotate(bgSpin + s * Math.PI * 2 / SEGMENTS);
+    if (s % 2) bgCtx.scale(1, -1);
+    fn();
+    bgCtx.restore();
+  }
   bgCtx.restore();
 }
 
+function drawOrbs(S, pulse) {
+  for (let k = 0; k < 5; k++) {
+    const [cr, cg, cb] = bgColors[k % bgColors.length];
+    const a = k * 0.7 + clock * 0.0008;
+    const x = Math.cos(a) * S * (0.22 + k * 0.07) * (1 + pulse * 0.25);
+    const y = Math.sin(a * 1.3) * S * (0.16 + k * 0.05);
+    const r = S * (0.16 + k * 0.03);
+    const g = bgCtx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${cr},${cg},${cb},0.6)`);
+    g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+    bgCtx.beginPath(); bgCtx.arc(x, y, r, 0, Math.PI * 2);
+    bgCtx.fillStyle = g; bgCtx.fill();
+  }
+}
+
+function drawShards(S, pulse) {
+  for (let k = 0; k < 6; k++) {
+    const [cr, cg, cb] = bgColors[k % bgColors.length];
+    const a = clock * 0.0005 + k * 0.9;
+    const d = S * (0.15 + k * 0.08) * (1 + pulse * 0.2);
+    const x = Math.cos(a) * d, y = Math.sin(a) * d, sz = S * (0.11 + k * 0.025);
+    bgCtx.save(); bgCtx.translate(x, y); bgCtx.rotate(a * 2);
+    bgCtx.beginPath();
+    bgCtx.moveTo(0, -sz); bgCtx.lineTo(sz * 0.8, sz * 0.6); bgCtx.lineTo(-sz * 0.8, sz * 0.6);
+    bgCtx.closePath();
+    bgCtx.fillStyle = `rgba(${cr},${cg},${cb},${0.32 + pulse * 0.25})`;
+    bgCtx.fill(); bgCtx.restore();
+  }
+}
+
+function drawRibbons(S, pulse) {
+  for (let k = 0; k < 5; k++) {
+    const [cr, cg, cb] = bgColors[k % bgColors.length];
+    const ph = clock * 0.0006 + k * 1.1;
+    bgCtx.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const tt = i / 24, ang = tt * 2.2 + ph, rad = tt * S * (0.5 + k * 0.05) * (1 + pulse * 0.25);
+      const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+      i ? bgCtx.lineTo(x, y) : bgCtx.moveTo(x, y);
+    }
+    bgCtx.lineWidth = S * 0.03 + pulse * S * 0.02;
+    bgCtx.lineCap = 'round';
+    bgCtx.strokeStyle = `rgba(${cr},${cg},${cb},0.5)`;
+    bgCtx.stroke();
+  }
+}
+
+function drawEmitters(S, pulse) {
+  rings.forEach(ring => {
+    const [cr, cg, cb] = ring.c;
+    bgCtx.beginPath();
+    bgCtx.arc(ring.ox, ring.oy, ring.r, 0, Math.PI * 2);
+    bgCtx.lineWidth = S * 0.035;
+    bgCtx.strokeStyle = `rgba(${cr},${cg},${cb},${ring.a})`;
+    bgCtx.stroke();
+  });
+}
+
+function drawBg() {
+  const w = bgCanvas.width, h = bgCanvas.height, S = Math.min(w, h);
+  // valence tints the base: happier → warmer, sadder → cooler/bluer
+  const v = audioFeat.valence;
+  bgCtx.fillStyle = `rgb(${Math.round(8 + v * 7)},8,${Math.round(14 - v * 6)})`;
+  bgCtx.fillRect(0, 0, w, h);
+
+  if (isPlaying) clock += 16 * (0.6 + audioFeat.energy * 0.9);
+  const pulse = blobPulse;
+  if (blobPulse > 0) blobPulse = Math.max(0, blobPulse - 0.035);
+  if (isPlaying) bgSpin += 0.0006 * (0.5 + audioFeat.energy);
+
+  if (bgMode === 'emitters') {
+    rings.forEach(r => { r.r += S * 0.006; r.a *= 0.975; });
+    rings = rings.filter(r => r.a > 0.03);
+  }
+
+  wedge(() => {
+    if      (bgMode === 'orbs')     drawOrbs(S, pulse);
+    else if (bgMode === 'shards')   drawShards(S, pulse);
+    else if (bgMode === 'ribbons')  drawRibbons(S, pulse);
+    else                            drawEmitters(S, pulse);
+  });
+}
+
+function triggerBeat() {
+  blobPulse = Math.min(1.3, 0.6 + audioFeat.danceability * 0.8);
+  if (bgMode === 'emitters') {
+    const S = Math.min(bgCanvas.width, bgCanvas.height);
+    rings.push({
+      r: 0, a: 0.7,
+      c: bgColors[Math.floor(Math.random() * bgColors.length)],
+      ox: (Math.random() - 0.5) * S * 0.3,
+      oy: (Math.random() - 0.5) * S * 0.2,
+    });
+  }
+}
+
 function checkBeat(posMs) {
-  const beatMs = 60000 / tempo;
-  const beat   = Math.floor(posMs / beatMs);
-  if (beat !== lastBeat) { lastBeat = beat; blobPulse = 1; }
+  if (beatTimes.length) {
+    // seeked backward → re-sync the pointer without firing a burst
+    if (beatIdx > 0 && posMs < beatTimes[beatIdx - 1] - 200) {
+      beatIdx = 0;
+      while (beatIdx < beatTimes.length && beatTimes[beatIdx] <= posMs) beatIdx++;
+      return;
+    }
+    let hit = false;
+    while (beatIdx < beatTimes.length && beatTimes[beatIdx] <= posMs) { beatIdx++; hit = true; }
+    if (hit) triggerBeat();
+  } else {
+    const beatMs = 60000 / tempo;
+    const beat   = Math.floor(posMs / beatMs);
+    if (beat !== lastBeat) { lastBeat = beat; triggerBeat(); }
+  }
 }
 
 function extractColors(img, count = 5) {
@@ -783,7 +1030,7 @@ function setArt(url) {
       const colors = extractColors(img);
       const [yr, yg, yb] = colors[0];
       document.getElementById('year').style.background = `rgb(${Math.round(yr*0.65)},${Math.round(yg*0.65)},${Math.round(yb*0.65)})`;
-      initBlobs(colors);
+      setPalette(colors);
     } catch {}
   };
   img.src = url;
@@ -844,9 +1091,21 @@ function applyState(state) {
 
   document.getElementById('btn-play-pause').innerHTML = isPlaying ? PAUSE_ICON : PLAY_ICON;
 
+  const dev = state.device?.name;
+  document.getElementById('device-line').textContent = dev ? `Playing on ${dev}` : '';
+
   if (track.id !== currentTrackId) {
     currentTrackId = track.id;
+    nextBgMode();
+
+    curPopularity = track.popularity ?? 0;
+    curExplicit   = !!track.explicit;
+    renderBadges();
+
     fetchAudioFeatures(track.id);
+    fetchAudioAnalysis(track.id);
+    fetchArtistGenres(track.artists?.[0]?.id);
+    fetchQueue();
     fetchLyrics(
       track.id,
       track.artists?.[0]?.name ?? '',
