@@ -34,7 +34,7 @@
     position: fixed;
     inset: 0;
     z-index: 0;
-    filter: blur(40px) saturate(1.1);
+    filter: blur(28px) saturate(1.1);
   }
 
   /* ── Layout ── */
@@ -422,6 +422,7 @@
       max-width: 1100px;
       height: calc(100dvh - 48px);
       align-items: stretch;
+      justify-content: center;
     }
 
     #app {
@@ -847,6 +848,8 @@ let rings    = [];
 let lastRingClock = 0;
 let clock     = 0; // advances only while playing → freezes on pause
 let bgDirty   = true; // force one repaint after palette/resize/pause changes
+let lastBgDraw = 0;
+const BG_FRAME_MS = 1000 / 24; // throttle background to ~24fps to spare weak TV GPUs
 
 // Cap the backing store so 4K TVs don't repaint a huge multiply+blur buffer
 // every frame. The 40px CSS blur hides the upscale.
@@ -861,12 +864,16 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
+// On weak TV boxes Chromium can drop/restart its GPU process, losing the canvas
+// context. Re-init the backing store and force a repaint when it comes back.
+bgCanvas.addEventListener('contextlost', e => { e.preventDefault(); }, false);
+bgCanvas.addEventListener('contextrestored', () => { resizeCanvas(); bgDirty = true; }, false);
+
 function setPalette(colors) { bgColors = colors; bgDirty = true; }
 
-// pick the next mode each track change so consecutive tracks differ
+// locked to a single kaleidoscope mode for now (set bgMode above to switch:
+// 'orbs' | 'shards' | 'ribbons' | 'emitters'). Just resets transient state per track.
 function nextBgMode() {
-  const others = BG_MODES.filter(m => m !== bgMode);
-  bgMode = others[Math.floor(Math.random() * others.length)];
   rings = [];
 }
 
@@ -943,7 +950,7 @@ function drawEmitters(S) {
   });
 }
 
-function drawBg() {
+function drawBg(dt) {
   const w = bgCanvas.width, h = bgCanvas.height, S = Math.min(w, h);
   // warm parchment base, tinted slightly toward the album's dominant color
   const [dr, dg, db] = bgColors[0];
@@ -951,8 +958,9 @@ function drawBg() {
   bgCtx.fillStyle = `rgb(${Math.round(245*(1-t)+dr*t)},${Math.round(240*(1-t)+dg*t)},${Math.round(232*(1-t)+db*t)})`;
   bgCtx.fillRect(0, 0, w, h);
 
-  if (isPlaying) clock += 16 * (0.6 + audioFeat.energy * 0.9);
-  if (isPlaying) bgSpin += 0.0006 * (0.5 + audioFeat.energy);
+  // advance by real elapsed time so motion speed is framerate-independent
+  if (isPlaying) clock  += dt * (0.6 + audioFeat.energy * 0.9);
+  if (isPlaying) bgSpin += dt * 0.0000375 * (0.5 + audioFeat.energy);
 
   if (bgMode === 'emitters') {
     if (isPlaying && clock - lastRingClock > 1100) {
@@ -1052,14 +1060,21 @@ function updateProgress(elapsed) {
   syncLyrics(pos);
 }
 
-function tick() {
-  if (isPlaying) updateProgress(Date.now() - lastPollAt);
-  // repaint only when something moves: playing, rings still fading, or forced
-  if (isPlaying || rings.length || bgDirty) {
-    drawBg();
-    bgDirty = false;
-  }
+function tick(now) {
+  // Schedule the next frame FIRST so a thrown error in this frame can never
+  // permanently kill the animation loop (the TV "freezes after a bit" symptom).
   requestAnimationFrame(tick);
+  try {
+    if (isPlaying) updateProgress(Date.now() - lastPollAt);
+    // repaint only when something moves, and no more than ~24fps
+    if ((isPlaying || rings.length || bgDirty) && now - lastBgDraw >= BG_FRAME_MS) {
+      drawBg(Math.min(now - lastBgDraw, 100)); // clamp dt after a stall/tab-resume
+      bgDirty = false;
+      lastBgDraw = now;
+    }
+  } catch (e) {
+    console.warn('[now-playing] frame error (loop continues):', e);
+  }
 }
 
 function applyState(state) {
