@@ -688,7 +688,7 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
-initBlobs(['rgb(80,100,50)', 'rgb(60,80,100)', 'rgb(100,70,40)', 'rgb(90,55,80)', 'rgb(50,90,75)']);
+initBlobs([[80,100,50], [60,80,100], [100,70,40], [90,55,80], [50,90,75]]);
 
 function initBlobs(colors) {
   const w = bgCanvas.width, h = bgCanvas.height;
@@ -723,10 +723,11 @@ function drawBg() {
     if (b.y > h + b.r * 2) b.y = -b.r;
 
     const r = b.r * pulse * (1 + Math.sin(b.wave) * 0.18);
+    const [cr, cg, cb] = b.color;
     const g = bgCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-    g.addColorStop(0,   b.color + 'cc');
-    g.addColorStop(0.5, b.color + '44');
-    g.addColorStop(1,   b.color + '00');
+    g.addColorStop(0,   `rgba(${cr},${cg},${cb},0.8)`);
+    g.addColorStop(0.5, `rgba(${cr},${cg},${cb},0.27)`);
+    g.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
     bgCtx.beginPath();
     bgCtx.arc(b.x, b.y, r, 0, Math.PI * 2);
     bgCtx.fillStyle = g;
@@ -768,8 +769,8 @@ function extractColors(img, count = 5) {
     if (diverse || picked.length === 0) picked.push(p);
   }
   return picked.length
-    ? picked.map(({ r, g, b }) => `rgb(${r},${g},${b})`)
-    : ['rgb(80,100,50)'];
+    ? picked.map(({ r, g, b }) => [r, g, b])
+    : [[80,100,50]];
 }
 
 function setArt(url) {
@@ -780,7 +781,8 @@ function setArt(url) {
     img.classList.remove('loading');
     try {
       const colors = extractColors(img);
-      document.getElementById('year').style.background = colors[0];
+      const [yr, yg, yb] = colors[0];
+      document.getElementById('year').style.background = `rgb(${Math.round(yr*0.65)},${Math.round(yg*0.65)},${Math.round(yb*0.65)})`;
       initBlobs(colors);
     } catch {}
   };
